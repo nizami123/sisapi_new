@@ -1,0 +1,4 @@
+# Izinkan gambar diakses langsung, tapi cegah eksekusi script
+<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|cgi|asp|aspx)$">
+    Require all denied
+</FilesMatch>
