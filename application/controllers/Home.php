@@ -61,7 +61,8 @@ class Home extends CI_Controller
         $data['current_page'] = $page;
 
         $data['categories'] = $this->Category_model->all_active();
-        $data['regencies'] = $this->Region_model->regencies(1); // default; diisi ulang via AJAX di JS
+        $data['regencies'] = $this->db->order_by('name', 'ASC')->get('regencies')->result_array();
+        $data['districts_for_filter'] = !empty($filters['regency_id']) ? $this->Region_model->districts($filters['regency_id']) : array();
         $data['filters'] = $filters;
         $data['title'] = 'Cari Ternak & Produk Peternakan - SISAPI';
 
