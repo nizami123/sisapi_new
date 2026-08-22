@@ -58,7 +58,7 @@ $autoload['packages'] = array();
 |
 |	$autoload['libraries'] = array('user_agent' => 'ua');
 */
-$autoload['libraries'] = array('database', 'session', 'form_validation', 'upload', 'pagination');
+$autoload['libraries'] = array('database', 'session', 'form_validation', 'upload');
 
 /*
 | -------------------------------------------------------------------
@@ -89,7 +89,7 @@ $autoload['drivers'] = array();
 |
 |	$autoload['helper'] = array('url', 'file');
 */
-$autoload['helper'] = array('url', 'form', 'security', 'text', 'whatsapp', 'slug_helper');
+$autoload['helper'] = array('url', 'form', 'text', 'sisapi'); 
 
 /*
 | -------------------------------------------------------------------
@@ -132,4 +132,12 @@ $autoload['language'] = array();
 |
 |	$autoload['model'] = array('first_model' => 'first');
 */
-$autoload['model'] = array();
+$autoload['model'] = array(
+	'User_model',
+	'Peternak_model',
+	'Produk_model',
+	'Kategori_model',
+	'Wilayah_model',
+	'LogAktivitas_model'
+);
+

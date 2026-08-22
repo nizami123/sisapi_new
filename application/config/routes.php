@@ -1,88 +1,60 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-/*
-| -------------------------------------------------------------------------
-| URI ROUTING
-| -------------------------------------------------------------------------
-| This file lets you re-map URI requests to specific controller functions.
-|
-| Typically there is a one-to-one relationship between a URL string
-| and its corresponding controller class/method. The segments in a
-| URL normally follow this pattern:
-|
-|	example.com/class/method/id/
-|
-| In some instances, however, you may want to remap this relationship
-| so that a different class/function is called than the one
-| corresponding to the URL.
-|
-| Please see the user guide for complete details:
-|
-|	https://codeigniter.com/userguide3/general/routing.html
-|
-| -------------------------------------------------------------------------
-| RESERVED ROUTES
-| -------------------------------------------------------------------------
-|
-| There are three reserved routes:
-|
-|	$route['default_controller'] = 'welcome';
-|
-| This route indicates which controller class should be loaded if the
-| URI contains no data. In the above example, the "welcome" class
-| would be loaded.
-|
-|	$route['404_override'] = 'errors/page_missing';
-|
-| This route will tell the Router which controller/method to use if those
-| provided in the URL cannot be matched to a valid route.
-|
-|	$route['translate_uri_dashes'] = FALSE;
-|
-| This is not exactly a route, but allows you to automatically route
-| controller and method names that contain dashes. '-' isn't a valid
-| class or method name character, so it requires translation.
-| When you set this option to TRUE, it will replace ALL dashes in the
-| controller and method URI segments.
-|
-| Examples:	my-controller/index	-> my_controller/index
-|		my-controller/my-method	-> my_controller/my_method
-*/
-$route['default_controller'] = 'home';
-$route['404_override'] = '';
+$route['default_controller'] = 'landing';
+$route['404_override'] = 'errors/page_missing';
 $route['translate_uri_dashes'] = FALSE;
 
-// ---------- FRONTEND ----------
-$route['cari'] = 'home/search';
-$route['kategori/(:any)'] = 'home/category/$1';
-$route['peternak'] = 'home/sellers';
-$route['peternak/(:any)'] = 'home/seller_profile/$1';
-$route['ternak-terdekat'] = 'home/nearby';
-$route['tentang'] = 'home/about';
-$route['ternak/(:any)'] = 'product/detail/$1';
+// ---------- Publik ----------
+$route['/']                                = 'landing/index';
+$route['tentang']                          = 'landing/tentang';
+$route['produk']                           = 'produk/index';
+$route['produk/(:any)']                    = 'produk/detail/$1';
+$route['produk/wa-klik/(:num)']            = 'produk/catat_klik_wa/$1';
+$route['kategori/(:any)']                  = 'produk/index/$1';
+$route['peternak-terpercaya']              = 'landing/daftar_peternak';
+$route['peternak-terpercaya/(:any)']       = 'landing/profil_peternak/$1';
+$route['artikel']                          = 'artikel/index';
+$route['artikel/(:any)']                   = 'artikel/detail/$1';
+$route['cari']                             = 'produk/cari';
+$route['cari/autocomplete']                = 'produk/autocomplete';
+$route['sitemap.xml']                      = 'seo/sitemap';
+$route['robots.txt']                       = 'seo/robots';
 
-// ---------- AUTH ----------
-$route['login'] = 'auth/login';
-$route['daftar'] = 'auth/register';
-$route['daftar-peternak'] = 'auth/register_seller';
-$route['logout'] = 'auth/logout';
+// ---------- AJAX Wilayah (dropdown berjenjang) ----------
+$route['wilayah/ajax/(:any)/(:num)']       = 'wilayah/ajax/$1/$2';
 
-// ---------- SELLER (dashboard peternak) ----------
-$route['dashboard'] = 'seller/dashboard';
-$route['dashboard/ternak-saya'] = 'seller/my_products';
-$route['dashboard/tambah-ternak'] = 'seller/add_product';
-$route['dashboard/edit/(:num)'] = 'seller/edit_product/$1';
-$route['dashboard/profil'] = 'seller/profile';
-$route['dashboard/lokasi'] = 'seller/location';
+// ---------- Auth ----------
+$route['login']                            = 'auth/login';
+$route['logout']                           = 'auth/logout';
+$route['daftar-peternak']                  = 'auth/register';
+$route['lupa-password']                    = 'auth/forgot_password';
+$route['reset-password/(:any)']            = 'auth/reset_password/$1';
 
-// ---------- ADMIN ----------
-$route['admin'] = 'admin/dashboard';
-$route['admin/pengguna'] = 'admin/users';
-$route['admin/peternak'] = 'admin/sellers';
-$route['admin/verifikasi-peternak'] = 'admin/verify_sellers';
-$route['admin/kategori'] = 'admin/categories';
-$route['admin/listing'] = 'admin/listings';
-$route['admin/moderasi'] = 'admin/moderation';
-$route['admin/wilayah'] = 'admin/regions';
-$route['admin/laporan'] = 'admin/reports';
+// ---------- Dashboard Peternak ----------
+$route['dashboard']                             = 'dashboard/peternak/index';
+$route['dashboard/profil']                      = 'dashboard/peternak/profil';
+$route['dashboard/produk']                      = 'dashboard/peternak/produk';
+$route['dashboard/produk/tambah']               = 'dashboard/peternak/tambah_produk';
+$route['dashboard/produk/edit/(:num)']          = 'dashboard/peternak/edit_produk/$1';
+$route['dashboard/produk/hapus/(:num)']         = 'dashboard/peternak/hapus_produk/$1';
+$route['dashboard/statistik']                   = 'dashboard/peternak/statistik';
+$route['dashboard/pesan']                       = 'dashboard/peternak/pesan';
+$route['dashboard/pengaturan']                  = 'dashboard/peternak/pengaturan';
+
+// ---------- Dashboard Admin (Dinas) ----------
+$route['admin']                                    = 'dashboard/admin/index';
+$route['admin/kategori']                           = 'dashboard/admin/kategori';
+$route['admin/wilayah']                            = 'dashboard/admin/wilayah';
+$route['admin/peternak']                           = 'dashboard/admin/data_peternak';
+$route['admin/peternak/verifikasi/(:num)']         = 'dashboard/admin/verifikasi_peternak/$1';
+$route['admin/produk']                             = 'dashboard/admin/data_produk';
+$route['admin/produk/verifikasi/(:num)']           = 'dashboard/admin/verifikasi_produk/$1';
+$route['admin/artikel']                            = 'dashboard/admin/artikel';
+$route['admin/banner']                             = 'dashboard/admin/banner';
+$route['admin/laporan']                            = 'dashboard/admin/laporan';
+$route['admin/statistik']                          = 'dashboard/admin/statistik';
+$route['admin/pengaturan']                         = 'dashboard/admin/pengaturan';
+$route['admin/user']                               = 'dashboard/admin/manajemen_user';
+$route['admin/log-aktivitas']                      = 'dashboard/admin/log_aktivitas';
+

@@ -23,7 +23,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | a PHP script and you can easily do that on your own.
 |
 */
-$config['base_url'] = 'https://sisapi.siternal.my.id/';
+$config['base_url'] = 'http://localhost/sisapi_rev/';
 
 /*
 |--------------------------------------------------------------------------
@@ -384,13 +384,13 @@ $config['encryption_key'] = '';
 |
 */
 $config['sess_driver'] = 'files';
-$config['sess_cookie_name'] = 'ci_session';
-$config['sess_samesite'] = 'Lax';
+$config['sess_cookie_name'] = 'sisapi_session';
 $config['sess_expiration'] = 7200;
 $config['sess_save_path'] = NULL;
 $config['sess_match_ip'] = FALSE;
 $config['sess_time_to_update'] = 300;
 $config['sess_regenerate_destroy'] = FALSE;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -408,12 +408,11 @@ $config['sess_regenerate_destroy'] = FALSE;
 |       'cookie_httponly') will also affect sessions.
 |
 */
-$config['cookie_prefix']	= '';
-$config['cookie_domain']	= '';
-$config['cookie_path']		= '/';
-$config['cookie_secure']	= FALSE;
-$config['cookie_httponly'] 	= FALSE;
-$config['cookie_samesite'] 	= 'Lax';
+$config['cookie_prefix'] = '';
+$config['cookie_domain'] = '';
+$config['cookie_path'] = '/';
+$config['cookie_secure'] = FALSE;
+$config['cookie_httponly'] = TRUE;
 
 /*
 |--------------------------------------------------------------------------
@@ -457,9 +456,9 @@ $config['global_xss_filtering'] = FALSE;
 | 'csrf_regenerate' = Regenerate token on every submission
 | 'csrf_exclude_uris' = Array of URIs which ignore CSRF checks
 */
-$config['csrf_protection'] = FALSE;
-$config['csrf_token_name'] = 'csrf_test_name';
-$config['csrf_cookie_name'] = 'csrf_cookie_name';
+$config['csrf_protection'] = TRUE;
+$config['csrf_token_name'] = 'sisapi_csrf_token';
+$config['csrf_cookie_name'] = 'sisapi_csrf_cookie';
 $config['csrf_expire'] = 7200;
 $config['csrf_regenerate'] = TRUE;
 $config['csrf_exclude_uris'] = array();
@@ -530,3 +529,15 @@ $config['rewrite_short_tags'] = FALSE;
 | Array:		array('10.0.1.200', '192.168.5.0/24')
 */
 $config['proxy_ips'] = '';
+
+$config['upload_path_ktp']     = './uploads/ktp/';
+$config['upload_path_selfie']  = './uploads/selfie/';
+$config['upload_path_kandang'] = './uploads/kandang/';
+$config['upload_path_profil']  = './uploads/profil/';
+$config['upload_path_produk']  = './uploads/produk/';
+$config['upload_path_artikel'] = './uploads/artikel/';
+$config['upload_path_banner']  = './uploads/banner/';
+$config['upload_max_size']     = 2048; // KB
+$config['upload_allowed_types']= 'jpg|jpeg|png|webp';
+
+$config['wa_message_template'] = 'Halo Saya tertarik dengan ternak yang Anda jual di SISAPI: {nama_produk}';

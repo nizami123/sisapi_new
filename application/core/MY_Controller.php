@@ -2,68 +2,85 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Base controller: menyediakan helper auth & role guard yang dipakai
- * oleh Seller_Controller dan Admin_Controller.
+ * Base Controller SISAPI
+ * Menangani autentikasi & RBAC (Role Based Access Control)
+ *
+ * Role ID acuan (tabel roles):
+ *  1 = super_admin (Dinas)
+ *  2 = admin_peternak
+ *  3 = peternak
+ *  4 = guest (tidak login)
  */
-class MY_Controller extends CI_Controller
-{
-    public $current_user = NULL;
+class MY_Controller extends CI_Controller {
 
-    public function __construct()
-    {
-        parent::__construct();
-        $this->load->library('session');
-        $this->load->model('User_model');
+	protected $current_user  = NULL;
+	protected $current_role  = 'guest';
 
-        $user_id = $this->session->userdata('user_id');
-        if ($user_id) {
-            $this->current_user = $this->User_model->find($user_id);
-        }
-    }
+	public function __construct()
+	{
+		parent::__construct();
 
-    protected function is_logged_in()
-    {
-        return (bool) $this->current_user;
-    }
+		if ($this->session->userdata('logged_in')) {
+			$this->current_user = array(
+				'id'       => $this->session->userdata('user_id'),
+				'username' => $this->session->userdata('username'),
+				'role_id'  => $this->session->userdata('role_id'),
+				'peternak_id' => $this->session->userdata('peternak_id'),
+			);
+			$this->current_role = $this->session->userdata('role_name');
+		}
+	}
 
-    protected function require_login($redirect = 'login')
-    {
-        if (!$this->is_logged_in()) {
-            redirect($redirect);
-        }
-    }
+	/**
+	 * Wajib login (role apapun)
+	 */
+	protected function require_login()
+	{
+		if (empty($this->current_user)) {
+			$this->session->set_flashdata('error', 'Silakan login terlebih dahulu.');
+			redirect('login');
+		}
+	}
 
-    protected function require_role($role, $redirect = 'login')
-    {
-        $this->require_login($redirect);
-        if ($this->current_user['role'] !== $role) {
-            show_error('Anda tidak memiliki akses ke halaman ini.', 403, 'Akses Ditolak');
-        }
-    }
-}
+	/**
+	 * Wajib salah satu role dari daftar yang diizinkan
+	 * Contoh: $this->require_role(array('super_admin','admin_peternak'));
+	 */
+	protected function require_role($allowed_roles = array())
+	{
+		$this->require_login();
+		if ( ! in_array($this->current_role, $allowed_roles)) {
+			show_error('Anda tidak memiliki akses ke halaman ini (403 Forbidden).', 403, 'Akses Ditolak');
+		}
+	}
 
-class Seller_Controller extends MY_Controller
-{
-    public $seller_profile = NULL;
+	/**
+	 * Khusus peternak yang statusnya sudah disetujui admin
+	 */
+	protected function require_peternak_approved()
+	{
+		$this->require_role(array('peternak'));
+		$peternak = $this->Peternak_model->get_by_user_id($this->current_user['id']);
+		if ( ! $peternak || $peternak->status_verifikasi !== 'disetujui') {
+			$this->session->set_flashdata('error', 'Akun peternak Anda belum diverifikasi oleh Admin Dinas. Anda belum bisa mengunggah ternak.');
+			redirect('dashboard/profil');
+		}
+		return $peternak;
+	}
 
-    public function __construct()
-    {
-        parent::__construct();
-        $this->require_role('seller');
-        $this->load->model('Seller_model');
-        $this->seller_profile = $this->Seller_model->find_by_user($this->current_user['id']);
-
-        if (!$this->seller_profile) {
-            redirect('daftar-peternak');
-        }
-    }
-}
-
-class Admin_Controller extends MY_Controller
-{
-    public function __construct()
-    {
-        parent::__construct();
-        $this->require_role('admin');
-    }
+	/**
+	 * Catat ke audit log (log_aktivitas)
+	 */
+	protected function catat_log($aksi, $modul, $referensi_id = NULL, $deskripsi = '')
+	{
+		$this->db->insert('log_aktivitas', array(
+			'user_id'      => $this->current_user['id'] ?? NULL,
+			'aksi'         => $aksi,
+			'modul'        => $modul,
+			'referensi_id' => $referensi_id,
+			'deskripsi'    => $deskripsi,
+			'ip_address'   => $this->input->ip_address(),
+			'created_at'   => date('Y-m-d H:i:s'),
+		));
+	}
 }

@@ -1,186 +1,203 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Auth extends CI_Controller
-{
-    public function __construct()
-    {
-        parent::__construct();
-        $this->load->library(array('session', 'form_validation'));
-        $this->load->model('User_model');
-        $this->load->model('Seller_model');
-        $this->load->model('Region_model');
-    }
+class Auth extends CI_Controller {
 
-    public function login()
-    {
-        if ($this->session->userdata('user_id')) {
-            redirect($this->_home_for_role($this->session->userdata('role')));
-        }
+	public function __construct()
+	{
+		parent::__construct();
+	}
 
-        if ($this->input->method() === 'post') {
-            $this->form_validation->set_rules('email', 'Email', 'required|valid_email');
-            $this->form_validation->set_rules('password', 'Password', 'required');
+	public function login()
+	{
+		if ($this->input->method() === 'post') {
+			$this->form_validation->set_rules('identity', 'Username/Email', 'required|trim');
+			$this->form_validation->set_rules('password', 'Password', 'required');
 
-            if ($this->form_validation->run()) {
-                $email = $this->input->post('email', TRUE);
-                $password = $this->input->post('password');
-                $user = $this->User_model->find_by_email($email);
+			if ($this->form_validation->run()) {
+				$user = $this->User_model->get_by_username_or_email($this->input->post('identity', TRUE));
 
-                if ($user && password_verify($password, $user['password'])) {
-                    if ($user['status'] === 'suspended') {
-                        $data['error'] = 'Akun Anda dinonaktifkan. Hubungi admin SISAPI.';
-                    } else {
-                        $this->session->set_userdata(array(
-                            'user_id' => $user['id'],
-                            'role'    => $user['role'],
-                            'name'    => $user['name'],
-                        ));
-                        redirect($this->_home_for_role($user['role']));
-                        return;
-                    }
-                } else {
-                    $data['error'] = 'Email atau password salah.';
-                }
-            } else {
-                $data['error'] = validation_errors();
-            }
-        }
+			
+				if ($user) {
 
-        $data['title'] = 'Login - SISAPI';
-        $this->load->view('templates/header', $data);
-        $this->load->view('templates/navbar', $data);
-        $this->load->view('auth/login', $data);
-        $this->load->view('templates/footer', $data);
-    }
+					if ($user->status !== 'aktif') {
+						$this->session->set_flashdata('error', 'Akun Anda belum aktif atau sedang ditangguhkan.');
+						redirect('login');
+					}
 
-    /**
-     * Pendaftaran pembeli (opsional/ringan — pembeli sebetulnya bisa
-     * langsung menghubungi penjual tanpa akun, akun hanya untuk favorit dsb).
-     */
-    public function register()
-    {
-        if ($this->input->method() === 'post') {
-            $this->form_validation->set_rules('name', 'Nama', 'required|min_length[3]');
-            $this->form_validation->set_rules('email', 'Email', 'required|valid_email|is_unique[users.email]');
-            $this->form_validation->set_rules('phone_whatsapp', 'No. WhatsApp', 'required|min_length[9]');
-            $this->form_validation->set_rules('password', 'Password', 'required|min_length[6]');
+					$peternak_id = NULL;
+					if ($user->nama_role === 'peternak') {
+						$p = $this->Peternak_model->get_by_user_id($user->id);
+						$peternak_id = $p ? $p->id : NULL;
+					}
 
-            if ($this->form_validation->run()) {
-                $user_id = $this->User_model->create(array(
-                    'name' => $this->input->post('name', TRUE),
-                    'email' => $this->input->post('email', TRUE),
-                    'phone_whatsapp' => $this->input->post('phone_whatsapp', TRUE),
-                    'password' => password_hash($this->input->post('password'), PASSWORD_BCRYPT),
-                    'role' => 'buyer',
-                    'status' => 'active'
-                ));
-                $this->session->set_userdata(array('user_id' => $user_id, 'role' => 'buyer', 'name' => $this->input->post('name', TRUE)));
-                $this->session->set_flashdata('success', 'Pendaftaran berhasil! Selamat datang di SISAPI.');
-                redirect('/');
-                return;
-            } else {
-                $data['error'] = validation_errors();
-            }
-        }
+					$this->session->set_userdata(array(
+						'logged_in'   => TRUE,
+						'user_id'     => $user->id,
+						'username'    => $user->username,
+						'role_id'     => $user->role_id,
+						'role_name'   => $user->nama_role,
+						'peternak_id' => $peternak_id,
+						'foto_profil' => $user->foto_profil,
+					));
 
-        $data['title'] = 'Daftar Pembeli - SISAPI';
-        $this->load->view('templates/header', $data);
-        $this->load->view('templates/navbar', $data);
-        $this->load->view('auth/register', $data);
-        $this->load->view('templates/footer', $data);
-    }
+					$this->User_model->update_last_login($user->id);
+					$this->db->insert('log_aktivitas', array(
+						'user_id' => $user->id, 'aksi' => 'login', 'modul' => 'auth',
+						'ip_address' => $this->input->ip_address(), 'created_at' => date('Y-m-d H:i:s'),
+					));
 
-    /**
-     * Pendaftaran peternak/penjual — termasuk profil peternakan & titik lokasi peta.
-     */
-    public function register_seller()
-    {
-        if ($this->input->method() === 'post') {
-            $this->form_validation->set_rules('name', 'Nama', 'required|min_length[3]');
-            $this->form_validation->set_rules('email', 'Email', 'required|valid_email|is_unique[users.email]');
-            $this->form_validation->set_rules('phone_whatsapp', 'No. WhatsApp', 'required|min_length[9]');
-            $this->form_validation->set_rules('password', 'Password', 'required|min_length[6]');
-            $this->form_validation->set_rules('farm_name', 'Nama Peternakan', 'required');
-            $this->form_validation->set_rules('address', 'Alamat', 'required');
-            $this->form_validation->set_rules('latitude', 'Titik lokasi peta', 'required');
-            $this->form_validation->set_rules('longitude', 'Titik lokasi peta', 'required');
+					if ($user->nama_role === 'super_admin' || $user->nama_role === 'admin_peternak') {
+						redirect('admin');
+					}
+					redirect('dashboard');
+				}
 
-            if ($this->form_validation->run()) {
-                $user_id = $this->User_model->create(array(
-                    'name' => $this->input->post('name', TRUE),
-                    'email' => $this->input->post('email', TRUE),
-                    'phone_whatsapp' => $this->input->post('phone_whatsapp', TRUE),
-                    'password' => password_hash($this->input->post('password'), PASSWORD_BCRYPT),
-                    'role' => 'seller',
-                    'status' => 'active'
-                ));
+				$this->session->set_flashdata('error', 'Username/Email atau password salah.');
+				redirect('login');
+			}
+		}
 
-                $photo_path = NULL;
-                if (!empty($_FILES['photo']['name'])) {
-                    $photo_path = $this->_upload_seller_photo($user_id);
-                }
-                if ($photo_path) {
-                    $this->User_model->update($user_id, array('photo' => $photo_path));
-                }
+		$data['meta_title'] = 'Login - SISAPI';
+		$this->load->view('templates/header_auth', $data);
+		$this->load->view('auth/login', $data);
+		$this->load->view('templates/footer_auth', $data);
+	}
 
-                $this->Seller_model->create(array(
-                    'user_id' => $user_id,
-                    'farm_name' => $this->input->post('farm_name', TRUE),
-                    'description' => $this->input->post('description', TRUE),
-                    'address' => $this->input->post('address', TRUE),
-                    'village_id' => $this->input->post('village_id') ?: NULL,
-                    'district_id' => $this->input->post('district_id') ?: NULL,
-                    'regency_id' => $this->input->post('regency_id') ?: NULL,
-                    'province_id' => $this->input->post('province_id') ?: NULL,
-                    'latitude' => $this->input->post('latitude'),
-                    'longitude' => $this->input->post('longitude'),
-                    'is_verified' => 0
-                ));
+	public function register()
+	{
+		if ($this->input->method() === 'post') {
+			$this->form_validation->set_rules('nama_lengkap', 'Nama Lengkap', 'required|trim|min_length[3]');
+			$this->form_validation->set_rules('nik', 'NIK', 'required|exact_length[16]|numeric|is_unique[peternak.nik]');
+			$this->form_validation->set_rules('no_kk', 'Nomor KK', 'required|exact_length[16]|numeric');
+			$this->form_validation->set_rules('tempat_lahir', 'Tempat Lahir', 'required|trim');
+			$this->form_validation->set_rules('tanggal_lahir', 'Tanggal Lahir', 'required');
+			$this->form_validation->set_rules('jenis_kelamin', 'Jenis Kelamin', 'required');
+			$this->form_validation->set_rules('alamat', 'Alamat', 'required|trim');
+			$this->form_validation->set_rules('provinsi_id', 'Provinsi', 'required');
+			$this->form_validation->set_rules('kabupaten_id', 'Kabupaten', 'required');
+			$this->form_validation->set_rules('kecamatan_id', 'Kecamatan', 'required');
+			$this->form_validation->set_rules('desa_id', 'Desa', 'required');
+			$this->form_validation->set_rules('nomor_hp', 'Nomor HP', 'required|trim');
+			$this->form_validation->set_rules('email', 'Email', 'required|valid_email|is_unique[users.email]');
+			$this->form_validation->set_rules('username', 'Username', 'required|alpha_dash|min_length[4]|is_unique[users.username]');
+			$this->form_validation->set_rules('password', 'Password', 'required|min_length[8]');
+			$this->form_validation->set_rules('password_confirm', 'Konfirmasi Password', 'required|matches[password]');
+			$this->form_validation->set_rules('setuju_syarat', 'Persetujuan', 'required');
+			// g-recaptcha-response divalidasi di sisi server via callback ke Google API (lihat README)
 
-                $this->session->set_userdata(array('user_id' => $user_id, 'role' => 'seller', 'name' => $this->input->post('name', TRUE)));
-                $this->session->set_flashdata('success', 'Pendaftaran berhasil! Akun peternak Anda berstatus "Menunggu Verifikasi" — admin SISAPI akan meninjau dalam 1x24 jam.');
-                redirect('dashboard');
-                return;
-            } else {
-                $data['error'] = validation_errors();
-            }
-        }
+			if ($this->form_validation->run()) {
 
-        $data['provinces'] = $this->Region_model->provinces();
-        $data['title'] = 'Daftar Sebagai Peternak - SISAPI';
-        $this->load->view('templates/header', $data);
-        $this->load->view('templates/navbar', $data);
-        $this->load->view('auth/register_seller', $data);
-        $this->load->view('templates/footer', $data);
-    }
+				// -- upload berkas wajib --
+				$foto_ktp     = $this->_upload_file('foto_ktp', 'upload_path_ktp');
+				$foto_selfie  = $this->_upload_file('foto_selfie_ktp', 'upload_path_selfie');
+				$foto_kandang = $this->_upload_file('foto_kandang', 'upload_path_kandang');
+				$foto_profil  = $this->_upload_file('foto_profil', 'upload_path_profil');
 
-    protected function _upload_seller_photo($user_id)
-    {
-        $config['upload_path'] = './uploads/sellers/';
-        $config['allowed_types'] = $this->config->item('sisapi_allowed_image_types');
-        $config['max_size'] = $this->config->item('sisapi_upload_max_size');
-        $config['file_name'] = 'seller_' . $user_id . '_' . time();
-        $config['encrypt_name'] = FALSE;
+				if ( ! $foto_ktp || ! $foto_selfie || ! $foto_kandang) {
+					$this->session->set_flashdata('error', 'Foto KTP, Selfie KTP, dan Foto Kandang wajib diunggah. ' . $this->upload->display_errors());
+					redirect('daftar-peternak');
+				}
 
-        $this->load->library('upload', $config);
-        if ($this->upload->do_upload('photo')) {
-            $upload_data = $this->upload->data();
-            return 'uploads/sellers/' . $upload_data['file_name'];
-        }
-        return NULL;
-    }
+				$this->db->trans_start();
 
-    protected function _home_for_role($role)
-    {
-        if ($role === 'admin') return 'admin';
-        if ($role === 'seller') return 'dashboard';
-        return '/';
-    }
+				$user_id = $this->User_model->create_user(array(
+					'role_id'      => 3, // peternak
+					'username'     => $this->input->post('username', TRUE),
+					'email'        => $this->input->post('email', TRUE),
+					'password'     => $this->input->post('password'),
+					'nomor_hp'     => $this->input->post('nomor_hp', TRUE),
+					'foto_profil'  => $foto_profil,
+					'status'       => 'aktif', // login diizinkan, tapi jualan menunggu verifikasi peternak
+				));
 
-    public function logout()
-    {
-        $this->session->sess_destroy();
-        redirect('/');
-    }
+				$this->Peternak_model->create(array(
+					'user_id'              => $user_id,
+					'nama_lengkap'          => $this->input->post('nama_lengkap', TRUE),
+					'nik'                   => $this->input->post('nik', TRUE),
+					'no_kk'                 => $this->input->post('no_kk', TRUE),
+					'tempat_lahir'          => $this->input->post('tempat_lahir', TRUE),
+					'tanggal_lahir'         => $this->input->post('tanggal_lahir', TRUE),
+					'jenis_kelamin'         => $this->input->post('jenis_kelamin', TRUE),
+					'alamat'                => $this->input->post('alamat', TRUE),
+					'provinsi_id'           => $this->input->post('provinsi_id', TRUE),
+					'kabupaten_id'          => $this->input->post('kabupaten_id', TRUE),
+					'kecamatan_id'          => $this->input->post('kecamatan_id', TRUE),
+					'desa_id'               => $this->input->post('desa_id', TRUE),
+					'kode_pos'              => $this->input->post('kode_pos', TRUE),
+					'foto_ktp'              => $foto_ktp,
+					'foto_selfie_ktp'       => $foto_selfie,
+					'foto_kandang'          => $foto_kandang,
+					'nama_kelompok_ternak'  => $this->input->post('nama_kelompok_ternak', TRUE),
+					'jenis_usaha'           => $this->input->post('jenis_usaha', TRUE),
+					'jumlah_ternak'         => (int) $this->input->post('jumlah_ternak', TRUE),
+					'latitude'              => $this->input->post('latitude', TRUE),
+					'longitude'             => $this->input->post('longitude', TRUE),
+					'setuju_syarat'         => 1,
+					'status_verifikasi'     => 'menunggu',
+				));
+
+				$this->db->trans_complete();
+
+				if ($this->db->trans_status() === FALSE) {
+					$this->session->set_flashdata('error', 'Pendaftaran gagal, silakan coba lagi.');
+					redirect('daftar-peternak');
+				}
+
+				$this->db->insert('log_aktivitas', array(
+					'user_id' => $user_id, 'aksi' => 'daftar_peternak', 'modul' => 'peternak',
+					'referensi_id' => $user_id, 'ip_address' => $this->input->ip_address(), 'created_at' => date('Y-m-d H:i:s'),
+				));
+
+				// TODO: kirim email notifikasi "Pendaftaran diterima, menunggu verifikasi admin"
+				$this->session->set_flashdata('success', 'Pendaftaran berhasil! Akun Anda akan aktif berjualan setelah diverifikasi oleh Admin Dinas.');
+				redirect('login');
+			}
+		}
+
+		$data['provinsi'] = $this->Wilayah_model->get_provinsi();
+		$data['meta_title'] = 'Daftar Sebagai Peternak - SISAPI';
+		$this->load->view('templates/header_auth', $data);
+		$this->load->view('auth/register', $data);
+		$this->load->view('templates/footer_auth', $data);
+	}
+
+	private function _upload_file($field, $config_path_key)
+	{
+		if (empty($_FILES[$field]['name'])) return NULL;
+
+		$config['upload_path']   = $this->config->item($config_path_key);
+		$config['allowed_types'] = $this->config->item('upload_allowed_types');
+		$config['max_size']      = $this->config->item('upload_max_size');
+		$config['encrypt_name']  = TRUE;
+
+		$this->load->library('upload', $config);
+		$this->upload->initialize($config);
+
+		if ($this->upload->do_upload($field)) {
+			$d = $this->upload->data();
+			return $d['file_name'];
+		}
+		return NULL;
+	}
+
+	public function logout()
+	{
+		if ($this->session->userdata('user_id')) {
+			$this->db->insert('log_aktivitas', array(
+				'user_id' => $this->session->userdata('user_id'), 'aksi' => 'logout', 'modul' => 'auth',
+				'ip_address' => $this->input->ip_address(), 'created_at' => date('Y-m-d H:i:s'),
+			));
+		}
+		$this->session->sess_destroy();
+		redirect('login');
+	}
+
+	public function forgot_password()
+	{
+		// TODO: implementasi kirim link reset via email (queue + token di tabel users)
+		$this->load->view('templates/header_auth');
+		$this->load->view('auth/forgot_password');
+		$this->load->view('templates/footer_auth');
+	}
 }
