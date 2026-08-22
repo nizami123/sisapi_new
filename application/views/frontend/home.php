@@ -37,7 +37,7 @@
       </div>
       <a href="<?= base_url('cari') ?>" class="btn btn-sisapi-green btn-sm">Lihat Semua Kategori <i class="fa-solid fa-arrow-right ms-1"></i></a>
     </div>
-    <div class="row g-3 row-cols-3 row-cols-md-5 row-cols-lg-8">
+    <div class="row g-3 row-cols-3 row-cols-md-6 row-cols-lg-8">
       <?php foreach ($categories as $cat): ?>
       <div class="col">
         <a href="<?= base_url('kategori/' . $cat['slug']) ?>" class="sisapi-category-card d-block">
